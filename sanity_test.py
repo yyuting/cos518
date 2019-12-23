@@ -17,7 +17,6 @@ def train(data, w, coef_shared):
         coef_shared[idx] += 1
     return
         
-
 def get_data():
     """
     Return a list of data
@@ -26,9 +25,9 @@ def get_data():
     ls = []
     for i in range(njobs):
         ls.append(np.random.rand(batch_size))
-    return ls
+    return ls, None
 
-def finish(w):
+def finish(w, gt):
     """
     process trained model
     """

@@ -17,6 +17,8 @@ coef_shared = None
 w = None
 model_module = None
 
+nthreads = 8
+
 def train_wrapper(data):
     return model_module.train(data, w, coef_shared)
 
@@ -30,20 +32,23 @@ def async_ML(args):
     spec.loader.exec_module(model_module)
     
     init_weights = model_module.init()
-    data = model_module.get_data()
+    data, gt = model_module.get_data()
     
     global coef_shared, w
     coef_shared = Array(c_double, init_weights.flat, lock=False)
     w = np.frombuffer(coef_shared)
     
-    p = Pool(8) 
+    p = Pool(nthreads) 
+    
+    # TODO: only training 1 epoch
+    # TODO: should add code to stop at timeout
     
     T0 = time.time()
     p.map(train_wrapper, data)
     T1 = time.time()
     
     print('async job finished in', T1 - T0, 's')
-    model_module.finish(w)
+    model_module.finish(w, gt)
     
 def serial_ML(args):
     """
@@ -57,7 +62,7 @@ def serial_ML(args):
         spec.loader.exec_module(model_module)
     
     init_weights = model_module.init()
-    data = model_module.get_data()
+    data, gt = model_module.get_data()
     
     global coef_shared, w
     coef_shared = Array(c_double, init_weights.flat, lock=False)
@@ -69,7 +74,7 @@ def serial_ML(args):
     T1 = time.time()
     
     print('sequential job finished in', T1 - T0, 's')
-    model_module.finish(w)
+    model_module.finish(w, gt)
 
 
 def main():
