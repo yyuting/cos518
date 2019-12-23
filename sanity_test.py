@@ -16,6 +16,13 @@ def train(data, w, coef_shared):
         idx = int(np.floor(data[i] * 10))
         coef_shared[idx] += 1
     return
+
+def compute_gradient(data, w):
+    grad = np.zeros(w.shape)
+    for i in range(data.shape[0]):
+        idx = int(np.floor(data[i] * 10))
+        grad[idx] -= 1.
+    return grad
         
 def get_data():
     """

@@ -34,6 +34,11 @@ def train(data, w, coef_shared):
         
     return
 
+def compute_gradient(data, w):
+    err = data[1] - np.matmul(data[0], w)
+    grad = -2 * np.matmul(err, data[0]) / batch_size
+    return grad
+
 def get_data():
     """
     Return a list of data

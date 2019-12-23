@@ -19,13 +19,15 @@ model_module = None
 
 nthreads = 8
 
-def train_wrapper(data):
-    return model_module.train(data, w, coef_shared)
+learning_rate = 0.001
+tol = 1e-2
 
-def async_ML(args):
-    print(args.name)
-    
-    
+def hogwild_train_wrapper(data):
+    grad = model_module.compute_gradient(data, w)
+    for i in np.where(np.abs(grad) > tol)[0]:
+        coef_shared[i] -= learning_rate * grad[i]
+
+def async_ML(args):    
     spec = importlib.util.spec_from_file_location("module.name", os.path.abspath(args.model_file))
     global model_module
     model_module = importlib.util.module_from_spec(spec)
@@ -44,7 +46,7 @@ def async_ML(args):
     # TODO: should add code to stop at timeout
     
     T0 = time.time()
-    p.map(train_wrapper, data)
+    p.map(hogwild_train_wrapper, data)
     T1 = time.time()
     
     print('async job finished in', T1 - T0, 's')
@@ -53,8 +55,7 @@ def async_ML(args):
 def serial_ML(args):
     """
     baseline: train the model sequentially
-    """
-    print(args.name)
+    """    
     global model_module
     if model_module is None:
         spec = importlib.util.spec_from_file_location("module.name", os.path.abspath(args.model_file))
@@ -70,7 +71,7 @@ def serial_ML(args):
     
     T0 = time.time()
     for i in range(len(data)):
-        train_wrapper(data[i])
+        hogwild_train_wrapper(data[i])
     T1 = time.time()
     
     print('sequential job finished in', T1 - T0, 's')
@@ -79,9 +80,17 @@ def serial_ML(args):
 
 def main():
     parser = argparse_util.ArgumentParser(description='asyn_ML')
-    parser.add_argument('--name', dest='name', default='', help='name of task')
-    parser.add_argument('--model_file', dest='model_file', default='sanity_test.py', help='py file that contains model-specific methods, must include init(), train(), get_data(), finish()')
+    parser.add_argument('--model_file', dest='model_file', default='sanity_test.py', help='py file that contains model-specific methods, must include init(), compute_gradient(), get_data(), finish()')
+    parser.add_argument('--learning_rate', dest='learning_rate', type=float, default=learning_rate, help='set training learning rate')
+    parser.add_argument('--tol', dest='tol', type=float, default=tol, help='set the threshold when to update the sparse weight entries')
     args = parser.parse_args()
+    
+    global learning_rate, tol
+    learning_rate = args.learning_rate
+    tol = args.tol
+    
+    print(tol, learning_rate)
+    
     async_ML(args)
     serial_ML(args)
     

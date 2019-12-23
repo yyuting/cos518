@@ -3,7 +3,7 @@ COS 518 course project
 
 Test command (simple counting, not ML):
 
-python main.py --model_file sanity_test.py
+python main.py --model_file sanity_test.py --learning_rate 1
 
 Updated 12/23/2019:
 
