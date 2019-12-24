@@ -19,8 +19,11 @@ model_module = None
 
 nthreads = 8
 
-learning_rate = 0.001
-tol = 1e-2
+DEFAULT_LEARNING_RATE = 0.001
+DEFAULT_TOL = 1e-2
+
+learning_rate = DEFAULT_LEARNING_RATE
+tol = DEFAULT_TOL
 
 def hogwild_train_wrapper(data):
     grad = model_module.compute_gradient(data, w)
@@ -81,8 +84,8 @@ def serial_ML(args):
 def main():
     parser = argparse_util.ArgumentParser(description='asyn_ML')
     parser.add_argument('--model_file', dest='model_file', default='sanity_test.py', help='py file that contains model-specific methods, must include init(), compute_gradient(), get_data(), finish()')
-    parser.add_argument('--learning_rate', dest='learning_rate', type=float, default=learning_rate, help='set training learning rate')
-    parser.add_argument('--tol', dest='tol', type=float, default=tol, help='set the threshold when to update the sparse weight entries')
+    parser.add_argument('--learning_rate', dest='learning_rate', type=float, default=DEFAULT_LEARNING_RATE, help='set training learning rate')
+    parser.add_argument('--tol', dest='tol', type=float, default=DEFAULT_TOL, help='set the threshold when to update the sparse weight entries')
     args = parser.parse_args()
     
     global learning_rate, tol
