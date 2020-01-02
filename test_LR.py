@@ -9,9 +9,14 @@ example modified from
 https://srome.github.io/Async-SGD-in-Python-Implementing-Hogwild!/
 """
 
-njobs = 10000
+DEFAULT_NJOBS = 10000
+njobs = DEFAULT_NJOBS
 # extreme case, least number of elements to update
-batch_size = 1
+DEFAULT_BATCH_SIZE = 1
+batch_size = DEFAULT_BATCH_SIZE
+
+DEFAULT_NSAMPLES_PER_JOB = 10
+nsamples_per_job = DEFAULT_NSAMPLES_PER_JOB
 
 ndims = 1000
 sparse_d = 0.2
@@ -26,11 +31,12 @@ def init():
 
 def train(data, w, coef_shared):
     
-    err = data[1] - np.matmul(data[0], w)
-    grad = -2 * np.matmul(err, data[0]) / batch_size
-        
-    for i in np.where(np.abs(grad) > tol)[0]:
-        coef_shared[i] -= learning_rate * grad[i]
+    for k in range(len(data)):
+        err = data[k][1] - np.matmul(data[k][0], w)
+        grad = -2 * np.matmul(err, data[k][0]) / batch_size
+
+        for i in np.where(np.abs(grad) > tol)[0]:
+            coef_shared[i] -= learning_rate * grad[i]
         
     return
 
@@ -39,13 +45,22 @@ def compute_gradient(data, w):
     grad = -2 * np.matmul(err, data[0]) / batch_size
     return grad
 
-def get_data():
+def get_data(total=None):
     """
     Return a list of data
     Each element in the list is the fraction of data that will be processed by the same worker
     """
     
-    filename = '_test_LR_data.npy'
+    if total is None:
+        filename = '_test_LR_data_%d_%d_%d.npy' % (batch_size, njobs, nsamples_per_job)
+
+        print(batch_size, njobs, nsamples_per_job)
+    else:
+        filename = '_test_LR_data_%d.npy' % total
+        print(total)
+        njobs = 1
+        nsamples_per_job = total
+    
     if os.path.exists(filename):
         arr = numpy.load(filename)
         return arr[0], arr[1]
@@ -54,9 +69,12 @@ def get_data():
     
     ls = []
     for i in range(njobs):
-        X = scipy.sparse.random(batch_size, ndims, density=sparse_d).toarray()
-        y = np.matmul(X, gt_w)
-        ls.append((X, y))
+        current_data = []
+        for k in range(nsamples_per_job):
+            X = scipy.sparse.random(batch_size, ndims, density=sparse_d).toarray()
+            y = np.matmul(X, gt_w)
+            current_data.append((X, y))
+        ls.append(current_data)
         
     numpy.save(filename, [ls, gt_w])
     return ls, gt_w
