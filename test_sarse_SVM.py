@@ -5,8 +5,10 @@ import scipy.sparse
 import os
 
 """
-example modified from
-https://srome.github.io/Async-SGD-in-Python-Implementing-Hogwild!/
+Implementation of
+HOGWILD!: A Lock-Free Approach to Parallelizing
+Stochastic Gradient Descent
+Section 2, Sparse SVM
 """
 
 DEFAULT_NJOBS = 10000
@@ -22,7 +24,9 @@ nsamples_per_job = DEFAULT_NSAMPLES_PER_JOB
 ndims = 100
 sparse_d = 0.2
 learning_rate = 0.001
-tol = 1e-2
+tol = 0
+
+lambda_val = 0.001
 
 def init():
     """
@@ -32,23 +36,31 @@ def init():
 
 def print_learning_rate():
     print('learning rate now', learning_rate)
-
-
+                
 def shared_train_hogwild(idx, w, coef_shared, data_val):
     for k in idx:
-        err = data_val[k, -1] - np.matmul(data_val[k, :-1], w)
+        current_predict = 1 - data_val[k, -1] * np.sum(w * data_val[k, :-1])
+        
         nonzero_ind = np.nonzero(data_val[k, :-1])[0]
+        du = nonzero_ind.shape[0]
+        
+        update_vector = 0 if current_predict <= 0 else 1
+        
         for i in nonzero_ind:
-            grad = -2 * err * data_val[k, i]
-            coef_shared[i] -= learning_rate * grad
-
+            current_grad = 2 * lambda_val * w[i] / du
+            if current_predict > 0:
+                current_grad -= data_val[k, -1] * data_val[k, i]
+            coef_shared[i] -= learning_rate * current_grad
+        
+                
 def get_data_shared(total):
     """
     Return a list of data
     Each element in the list is the fraction of data that will be processed by the same worker
     """
-
-    filename = '_test_LR_data_%d.npy' % total
+    
+    filename = '_test_sparse_SVM_data_%d.npy' % total
+    print(total)
     
     if os.path.exists(filename):
         arr = numpy.load(filename)
@@ -59,7 +71,7 @@ def get_data_shared(total):
     X = scipy.sparse.random(total, ndims, density=sparse_d).toarray()
     y = np.matmul(X, gt_w)
     ls = np.concatenate((X, np.expand_dims(y, 1)), 1)
-
+        
     numpy.save(filename, [ls, gt_w])
     return ls, gt_w
 

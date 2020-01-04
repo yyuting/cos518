@@ -18,6 +18,8 @@ def train(data, w, coef_shared):
         coef_shared[idx] += 1
     return
 
+train_hogwild = train
+
 def compute_gradient(data, w):
     grad = np.zeros(w.shape)
     for i in range(data.shape[0]):
