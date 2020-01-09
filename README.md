@@ -36,3 +36,9 @@ Benchmark sparse SVM and linear regression on different number of threads:
 python main.py --model_file test_sarse_SVM.py --learning_rate 0.01 --epochs 10 --nthreads 4 --beta 0.9 --total_training_data 42000 --mode eval_nthreads_tradeoff --eval_schedule eval_njobs_schedule.txt --output_file out_njobs_schedule_test_SVM.txt
 
 python main.py --model_file test_LR.py --learning_rate 0.01 --epochs 10 --nthreads 4 --beta 0.9 --total_training_data 42000 --mode eval_nthreads_tradeoff --eval_schedule eval_njobs_schedule.txt --output_file out_njobs_schedule_test_LR.txt
+
+Updated 01/09/2019:
+
+provide API to set random dataset sparsity:
+
+python main.py --model_file test_sarse_SVM.py --nsamples_per_job 10000 --learning_rate 0.01 --epochs 20 --nthreads 4 --njobs 4 --beta 0.9 --dataset_sparsity 0.1

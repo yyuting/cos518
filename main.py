@@ -42,6 +42,8 @@ nsamples_per_job = DEFAULT_NSAMPLES_PER_JOB
 
 DEFAULT_BETA = 0.9
 
+DEFAULT_SPARSITY = 0.1
+
 def hogwild_train_wrapper(data):
     model_module.train_hogwild(data, w, coef_shared)
     return
@@ -72,6 +74,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
     spec.loader.exec_module(model_module)
     
     model_module.learning_rate = learning_rate
+    model_module.sparse_d = args.dataset_sparsity
     
     init_weights = model_module.init()
     
@@ -208,6 +211,7 @@ def main():
     parser.add_argument('--output_file', dest='output_file', default='out.txt', help='file to write evaluation result in eval mode')
     parser.add_argument('--epochs', dest='epochs', type=int, default=1, help='number of epochs for training')
     parser.add_argument('--beta', dest='beta', type=float, default=DEFAULT_BETA, help='beta used to decay learning rate per epoch')
+    parser.add_argument('--dataset_sparsity', dest='dataset_sparsity', type=float, default=DEFAULT_SPARSITY, help='if creating random dataset, set the dataset sparsity')
     args = parser.parse_args()
     
     global learning_rate, tol, nthreads, batch_size, njobs, nsamples_per_job

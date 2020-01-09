@@ -59,7 +59,7 @@ def get_data_shared(total):
     Each element in the list is the fraction of data that will be processed by the same worker
     """
     
-    filename = '_test_sparse_SVM_data_%d.npy' % total
+    filename = '_test_sparse_SVM_data_%d_%d.npy' % (total, sparse_d * 100)
     print(total)
     
     if os.path.exists(filename):
