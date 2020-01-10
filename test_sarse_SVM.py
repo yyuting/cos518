@@ -36,22 +36,30 @@ def init():
 
 def print_learning_rate():
     print('learning rate now', learning_rate)
-                
-def shared_train_hogwild(idx, w, coef_shared, data_val):
-    for k in idx:
-        current_predict = 1 - data_val[k, -1] * np.sum(w * data_val[k, :-1])
+    
+    
+def shared_train_wrapper(alg, lock=None):
+    assert alg in ['hogwild', 'RR']
+    def func(idx, w, coef_shared, data_val):
+        for k in idx:
+            current_predict = 1 - data_val[k, -1] * np.sum(w * data_val[k, :-1])
+
+            nonzero_ind = np.nonzero(data_val[k, :-1])[0]
+            du = nonzero_ind.shape[0]
+
+            if alg == 'RR':
+                lock.acquire()
+            for i in nonzero_ind:
+                current_grad = 2 * lambda_val * w[i] / du
+                if current_predict > 0:
+                    current_grad -= data_val[k, -1] * data_val[k, i]
+                coef_shared[i] -= learning_rate * current_grad
+            if alg == 'RR':
+                lock.release()
         
-        nonzero_ind = np.nonzero(data_val[k, :-1])[0]
-        du = nonzero_ind.shape[0]
-        
-        update_vector = 0 if current_predict <= 0 else 1
-        
-        for i in nonzero_ind:
-            current_grad = 2 * lambda_val * w[i] / du
-            if current_predict > 0:
-                current_grad -= data_val[k, -1] * data_val[k, i]
-            coef_shared[i] -= learning_rate * current_grad
-        
+    return func
+
+shared_train_hogwild = shared_train_wrapper('hogwild')
                 
 def get_data_shared(total):
     """

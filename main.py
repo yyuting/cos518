@@ -8,6 +8,7 @@ import time
 # https://srome.github.io/Async-SGD-in-Python-Implementing-Hogwild!/
 
 from multiprocessing.sharedctypes import Array
+import multiprocessing
 from ctypes import c_double
 import numpy
 import numpy as np
@@ -44,18 +45,6 @@ DEFAULT_BETA = 0.9
 
 DEFAULT_SPARSITY = 0.1
 
-def hogwild_train_wrapper(data):
-    model_module.train_hogwild(data, w, coef_shared)
-    return
-    if False:
-        for k in range(len(data)):
-            grad = model_module.compute_gradient(data[k], w)
-            #for i, val in grad:
-            #    coef_shared[i] -= learning_rate * val
-            for i in np.where(np.abs(grad) > tol)[0]:
-                coef_shared[i] -= learning_rate * grad[i]
-                
-    
 def hogwild_shared_train_wrapper(data):
     model_module.shared_train_hogwild(data, w, coef_shared, data_val)
     
@@ -66,6 +55,10 @@ def hogwild_shared_train_wrapper_with_queue(q):
             break
         else:
             model_module.shared_train_hogwild([val], w, coef_shared, data_val)
+            
+def RR_shared_train_wrapper(data):
+    model_module.shared_train_wrapper('RR', lock)(data, w, coef_shared, data_val)
+    #model_module.shared_train_RR(data, w, coef_shared, data_val)
                 
 def async_ML_shared_data(args, mode='per_epoch'):
     spec = importlib.util.spec_from_file_location("module.name", os.path.abspath(args.model_file))
@@ -79,8 +72,16 @@ def async_ML_shared_data(args, mode='per_epoch'):
     init_weights = model_module.init()
     
     global coef_shared, w
-    coef_shared = Array(c_double, init_weights.flat, lock=False)
-    w = np.frombuffer(coef_shared)
+    if mode == 'RR':
+        do_lock = True
+    else:
+        do_lock = False
+        
+    coef_shared = Array(c_double, init_weights.flat, lock=do_lock)
+    if do_lock:
+        w = np.frombuffer(coef_shared.get_obj())
+    else:
+        w = np.frombuffer(coef_shared)
     
     # assert data is a numpy array itself
     global data_shared, data_val, gt
@@ -98,6 +99,12 @@ def async_ML_shared_data(args, mode='per_epoch'):
     indices = np.arange(args.total_training_data)
     if mode in ['per_epoch', 'all']:
         p = Pool(nthreads)
+    elif mode == 'RR':
+        lock_obj = multiprocessing.Lock()
+        def init_lock(l):
+            global lock
+            lock = l
+        p = Pool(nthreads, initializer=init_lock, initargs=(lock_obj,))
     if mode == 'queue':
         q = Queue(maxsize=nthreads*2)
     T0 = time.time()
@@ -111,6 +118,20 @@ def async_ML_shared_data(args, mode='per_epoch'):
                 jobs_idx.append(indices[i * nsamples_per_job : (i + 1) * nsamples_per_job])
 
             p.map(hogwild_shared_train_wrapper, jobs_idx)
+
+            model_module.learning_rate *= args.beta
+            model_module.print_learning_rate()
+            print('epoch', e)
+            model_module.finish(w, gt)
+    elif mode == 'RR':
+        for e in range(args.epochs):
+            np.random.shuffle(indices)
+
+            jobs_idx = []
+            for i in range(nthreads):
+                jobs_idx.append(indices[i * nsamples_per_job : (i + 1) * nsamples_per_job])
+
+            p.map(RR_shared_train_wrapper, jobs_idx)
 
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
@@ -138,8 +159,6 @@ def async_ML_shared_data(args, mode='per_epoch'):
         for _ in range(nthreads):  # tell workers we're done
             q.put(None)
 
-        p.close()
-        p.join()
     elif mode == 'serial':
         for e in range(args.epochs):
             np.random.shuffle(indices)
@@ -159,8 +178,9 @@ def async_ML_shared_data(args, mode='per_epoch'):
         raise 'async shared data mode not allowed'
     
     T1 = time.time()
-    if mode in ['per_epoch', 'all']:
+    if mode in ['per_epoch', 'all', 'RR', 'queue']:
         p.close()
+        p.join()
     
     print('mode', mode)
     print('shared async job finished in', T1 - T0, 's')
