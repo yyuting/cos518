@@ -20,6 +20,8 @@ model_module = None
 
 data_shared = None
 data_val = None
+data_validate = None
+data_test = None
 gt = None
 
 
@@ -88,13 +90,17 @@ def async_ML_shared_data(args, mode='per_epoch'):
     random_dataset = getattr(model_module, 'random_dataset', True)
     
     # assert data is a numpy array itself
-    global data_shared, data_val, gt
-    if data_shared is None or data_val is None or gt is None:
+    global data_shared, data_val, gt, data_validate, data_test
+    if data_shared is None or data_val is None or gt is None or data_validate is None or data_test is None:
         data_all, gt = model_module.get_data_shared(args.total_training_data)
-        if getattr(model_module, 'has_val', False) or getattr(model_module, 'has_test', False):
+        if getattr(model_module, 'has_val', False) and getattr(model_module, 'has_test', False):
             data = data_all[0]
+            data_validate = data_all[1]
+            data_test = data_all[2]
         else:
             data = data_all
+            data_validate = data_all
+            data_test = data_all
         data_shared = Array(c_double, data.flat, lock=False)
         data_val = np.frombuffer(data_shared).reshape(data.shape)
         
@@ -136,7 +142,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
             T1 = time.time()
             st += T1 - T0
             print('epoch', e)
-            model_module.finish(w, data_val)
+            model_module.finish(w, data_validate)
     elif mode == 'RR':
         for e in range(args.epochs):
             T0 = time.time()
@@ -153,7 +159,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
             T1 = time.time()
             st += T1 - T0
             print('epoch', e)
-            model_module.finish(w, data_val)
+            model_module.finish(w, data_validate)
     elif mode == 'all':
         T0 = time.time()
         jobs_idx = [np.arange(0)] * nthreads
@@ -164,7 +170,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
         p.map(hogwild_shared_train_wrapper, jobs_idx)
         T1 = time.time()
         st += T1 - T0
-        model_module.finish(w, data_val)
+        model_module.finish(w, data_validate)
     elif mode == 'queue':
         p = Pool(nthreads, initializer=hogwild_shared_train_wrapper_with_queue, initargs=(q,))
         for e in range(args.epochs):
@@ -177,7 +183,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
             model_module.print_learning_rate()
             T1 = time.time()
             st += T1 - T0
-            model_module.finish(w, data_val)
+            model_module.finish(w, data_validate)
 
         for _ in range(nthreads):  # tell workers we're done
             q.put(None)
@@ -200,7 +206,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
             T1 = time.time()
             st += T1 - T0
             print('epoch', e)
-            model_module.finish(w, data_val)
+            model_module.finish(w, data_validate)
     else:
         raise 'async shared data mode not allowed'
     
@@ -210,7 +216,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
     
     print('mode', mode)
     print('shared async job finished in', st, 's')
-    err = model_module.finish(w, data_val)
+    err = model_module.finish(w, data_test, mode='test')
     return st, err
     
     

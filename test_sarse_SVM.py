@@ -28,6 +28,9 @@ tol = 0
 
 lambda_val = 0.001
 
+has_val = True
+has_test = True
+
 def init():
     """
     Return an initialization of weights
@@ -76,18 +79,26 @@ def get_data_shared(total):
     
     gt_w = np.random.rand(ndims) - 0.5
     
-    X = scipy.sparse.random(total, ndims, density=sparse_d).toarray() - 0.5
+    X = scipy.sparse.random(total, ndims, density=sparse_d).toarray()
     y = np.sign(np.matmul(X, gt_w))
     ls = np.concatenate((X, np.expand_dims(y, 1)), 1)
+    
+    X_validate = scipy.sparse.random(total // 10, ndims, density=sparse_d).toarray()
+    y_validate = np.sign(np.matmul(X_validate, gt_w))
+    ls_validate = np.concatenate((X_validate, np.expand_dims(y_validate, 1)), 1)
+    
+    X_test = scipy.sparse.random(total // 10, ndims, density=sparse_d).toarray()
+    y_test = np.sign(np.matmul(X_test, gt_w))
+    ls_test = np.concatenate((X_test, np.expand_dims(y_test, 1)), 1)
         
-    numpy.save(filename, [ls, gt_w])
-    return ls, gt_w
+    numpy.save(filename, [[ls, ls_validate, ls_test], gt_w])
+    return [ls, ls_validate, ls_test], gt_w
 
-def finish(w, data):
+def finish(w, data, mode='validation'):
     """
     process trained model
     """
     err = np.sum(np.maximum(1 - data[:, -1] * np.matmul(data[:, :-1], w), 0))
     reg = lambda_val * np.sum(w * w)
-    print("training error, ", err, err + reg)
+    print("%s error, " % mode, err, err + reg)
     return err

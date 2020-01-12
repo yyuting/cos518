@@ -92,7 +92,7 @@ def get_data_shared(total):
     
     return [data_train, data_validate, data_test], None
 
-def finish(w, data):
+def finish(w, data, mode='validation'):
     """
     process trained model
     """
@@ -105,5 +105,5 @@ def finish(w, data):
     margin=(margin>0)*margin
     err = margin.sum()/num_train
     reg = 0.5*lambda_val*np.sum(w * w)
-    print("training error, ", err, err + reg)
+    print("%s error, " % mode, err, err + reg)
     return err
