@@ -26,10 +26,12 @@ sparse_d = 0.2
 learning_rate = 0.001
 tol = 0
 
-lambda_val = 0.001
+lambda_val = 10
 
 has_val = True
 has_test = True
+
+debug_mode = True
 
 def init():
     """
@@ -45,18 +47,22 @@ def shared_train_wrapper(alg, lock=None):
     assert alg in ['hogwild', 'RR']
     def func(idx, w, coef_shared, data_val):
         for k in idx:
-            current_predict = 1 - data_val[k, -1] * np.sum(w * data_val[k, :-1])
+            current_predict = 1 - data_val[k, -1] * np.matmul(data_val[k, :-1], w)
 
-            nonzero_ind = np.nonzero(data_val[k, :-1])[0]
+            # only approximate, e.g. if one sample has entry -1 and another entry has sample 1, the entry will be incorrectely ignored
+            # but this way is much more efficient than taking the union of nonzero sets for each sample
+            nonzero_ind = np.nonzero(np.sum(data_val[k, :-1], 0))[0]
             du = nonzero_ind.shape[0]
-
+            
             if alg == 'RR':
                 lock.acquire()
-            for i in nonzero_ind:
-                current_grad = 2 * lambda_val * w[i] / du
-                if current_predict > 0:
-                    current_grad -= data_val[k, -1] * data_val[k, i]
-                coef_shared[i] -= learning_rate * current_grad
+            if True:
+                for i in nonzero_ind:
+                    current_grad = 2 * lambda_val * w[i] / du
+                    if np.any(current_predict) > 0:
+                        current_grad -= np.sum(data_val[k, -1] * data_val[k, i])
+                    coef_shared[i] -= learning_rate * current_grad
+
             if alg == 'RR':
                 lock.release()
         
