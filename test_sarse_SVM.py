@@ -46,18 +46,21 @@ def print_learning_rate():
 def get_grad(idx, w, coef_shared, data_val):
     grad = np.zeros(w.size)
     for k in idx:
-        current_predict = 1 - data_val[k, -1] * np.sum(w * data_val[k, :-1])
+        current_predict = 1 - data_val[k, -1] * np.matmul(data_val[k, :-1], w)
 
-        nonzero_ind = np.nonzero(data_val[k, :-1])[0]
+        # only approximate, e.g. if one sample has entry -1 and another entry has sample 1, the entry will be incorrectely ignored
+        # but this way is much more efficient than taking the union of nonzero sets for each sample
+        nonzero_ind = np.nonzero(np.sum(data_val[k, :-1], 0))[0]
         du = nonzero_ind.shape[0]
-
-        for i in nonzero_ind:
-            current_grad = 2 * lambda_val * w[i] / du
-            if current_predict > 0:
-                current_grad -= data_val[k, -1] * data_val[k, i]
-            grad[i] -= current_grad
-            #coef_shared[i] -= learning_rate * current_grad
-    return grad
+        
+        update_predict = np.any(current_predict) > 0
+        
+        current_grad = 2 * lambda_val * w / du
+        if update_predict:
+            current_grad -= np.sum(np.expand_dims(data_val[k, -1], 1) * data_val[k, :-1], 0)
+        current_grad[np.sum(data_val[k, :-1], 0) == 0] = 0
+        #coef_shared[:] -= learning_rate * current_grad
+    return current_grad
 
 def shared_train_wrapper(alg, lock=None):
     assert alg in ['hogwild', 'RR']

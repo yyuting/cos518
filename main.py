@@ -151,9 +151,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
 
             grads = p.map(get_grad_wrapper, jobs_idx)
             grad = np.sum(grads, axis=0)
-            nonzero_ind = np.nonzero(grad)
-            for i in nonzero_ind:
-                w[np.unravel_index(i, w.shape)] -= learning_rate * grad[i]
+            coef_shared[:] -= learning_rate * grad
 
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
