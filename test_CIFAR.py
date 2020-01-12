@@ -15,7 +15,7 @@ nclasses = 10
 
 lambda_val = 0.001
 
-debug_mode = True
+debug_mode = False
 
 
 def init():
