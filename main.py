@@ -37,12 +37,6 @@ tol = DEFAULT_TOL
 DEFAULT_BATCH_SIZE = 1
 batch_size = DEFAULT_BATCH_SIZE
 
-DEFAULT_NJOBS = 10000
-njobs = DEFAULT_NJOBS
-
-DEFAULT_NSAMPLES_PER_JOB = 10
-nsamples_per_job = DEFAULT_NSAMPLES_PER_JOB
-
 DEFAULT_BETA = 0.9
 
 DEFAULT_SPARSITY = 0.1
@@ -105,10 +99,10 @@ def async_ML_shared_data(args, mode='per_epoch'):
             data_validate = data_all
             data_test = data_all
         data_shared = Array(c_double, data.flat, lock=False)
-        data_val = np.frombuffer(data_shared).reshape(data.shape)
-        
+        data_val = np.frombuffer(data_shared).reshape(data.shape) 
     args.total_training_data = data_val.shape[0]
     nsamples_per_job = args.total_training_data // nthreads
+    print(args.total_training_data, nsamples_per_job, nthreads)
     assert nsamples_per_job * nthreads == args.total_training_data
     assert nsamples_per_job % args.batch_size == 0
         
@@ -254,7 +248,7 @@ def eval_nthreads_tradeoff(args):
     # first line of file gives schedule of njobs
     nthreads_schedule = [int(i) for i in eval_schedule[0].split(' ')]
     
-    global nthreads, njobs, nsamples_per_job
+    global nthreads, nsamples_per_job
     
     all_times = np.empty(len(nthreads_schedule))
     all_err = np.empty(len(nthreads_schedule))
@@ -279,8 +273,6 @@ def main():
     parser.add_argument('--tol', dest='tol', type=float, default=DEFAULT_TOL, help='set the threshold when to update the sparse weight entries')
     parser.add_argument('--nthreads', dest='nthreads', type=int, default=DEFAULT_NTHREADS, help='set number of thread in async training')
     parser.add_argument('--batch_size', dest='batch_size', type=int, default=DEFAULT_BATCH_SIZE, help='set batch size per training step')
-    parser.add_argument('--njobs', dest='njobs', type=int, default=DEFAULT_NJOBS, help='set number of jobs launched on different threads')
-    parser.add_argument('--nsamples_per_job', dest='nsamples_per_job', type=int, default=DEFAULT_NSAMPLES_PER_JOB, help='set number of training examples per job')
     parser.add_argument('--mode', dest='mode', default='per_epoch,serial', help='which mode to run experiments')
     parser.add_argument('--total_training_data', dest='total_training_data', type=int, default=10000, help='total number of training examples, used to generate training data')
     parser.add_argument('--eval_schedule', dest='eval_schedule', default='eval.txt', help='file that provides evaluation schedule')
@@ -290,14 +282,12 @@ def main():
     parser.add_argument('--dataset_sparsity', dest='dataset_sparsity', type=float, default=DEFAULT_SPARSITY, help='if creating random dataset, set the dataset sparsity')
     args = parser.parse_args()
     
-    global learning_rate, tol, nthreads, batch_size, njobs, nsamples_per_job
+    global learning_rate, tol, nthreads, batch_size
     learning_rate = args.learning_rate
     tol = args.tol
     nthreads = args.nthreads
     batch_size = args.batch_size
-    njobs = args.njobs
-    nsamples_per_job = args.nsamples_per_job
-    
+
     print(tol, learning_rate)
     
     modes = args.mode.split(',')

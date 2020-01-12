@@ -31,7 +31,7 @@ lambda_val = 10
 has_val = True
 has_test = True
 
-debug_mode = True
+update_single_entry = False
 
 def init():
     """
@@ -70,14 +70,22 @@ def shared_train_wrapper(alg, lock=None):
             nonzero_ind = np.nonzero(np.sum(data_val[k, :-1], 0))[0]
             du = nonzero_ind.shape[0]
             
+            update_predict = np.any(current_predict) > 0
+            
             if alg == 'RR':
                 lock.acquire()
-            if True:
+            if update_single_entry:
                 for i in nonzero_ind:
                     current_grad = 2 * lambda_val * w[i] / du
-                    if np.any(current_predict) > 0:
+                    if update_predict:
                         current_grad -= np.sum(data_val[k, -1] * data_val[k, i])
                     coef_shared[i] -= learning_rate * current_grad
+            else:
+                current_grad = 2 * lambda_val * w / du
+                if update_predict:
+                    current_grad -= np.sum(np.expand_dims(data_val[k, -1], 1) * data_val[k, :-1], 0)
+                current_grad[np.sum(data_val[k, :-1], 0) == 0] = 0
+                coef_shared[:] -= learning_rate * current_grad
 
             if alg == 'RR':
                 lock.release()
