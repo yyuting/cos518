@@ -59,7 +59,10 @@ def hogwild_shared_train_wrapper_with_queue(q):
 def RR_shared_train_wrapper(data):
     model_module.shared_train_wrapper('RR', lock)(data, w, coef_shared, data_val)
     #model_module.shared_train_RR(data, w, coef_shared, data_val)
-                
+
+def get_grad_wrapper(data):
+    return model_module.get_grad(data, w, coef_shared, data_val)
+
 def async_ML_shared_data(args, mode='per_epoch'):
     spec = importlib.util.spec_from_file_location("module.name", os.path.abspath(args.model_file))
     global model_module
@@ -108,7 +111,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
         mode = 'serial'
     
     indices = np.arange(args.total_training_data)
-    if mode in ['per_epoch', 'all']:
+    if mode in ['per_epoch', 'all', 'sync']:
         p = Pool(nthreads)
     elif mode == 'RR':
         lock_obj = multiprocessing.Lock()
@@ -130,6 +133,27 @@ def async_ML_shared_data(args, mode='per_epoch'):
                 jobs_idx.append(indices[i * nsamples_per_job : (i + 1) * nsamples_per_job].reshape((-1, args.batch_size)))
 
             p.map(hogwild_shared_train_wrapper, jobs_idx)
+
+            model_module.learning_rate *= args.beta
+            model_module.print_learning_rate()
+            T1 = time.time()
+            st += T1 - T0
+            print('epoch', e)
+            model_module.finish(w, data_val)
+    elif mode == 'sync':
+        for e in range(args.epochs):
+            T0 = time.time()
+            np.random.shuffle(indices)
+
+            jobs_idx = []
+            for i in range(nthreads):
+                jobs_idx.append(indices[i * nsamples_per_job : (i + 1) * nsamples_per_job].reshape((-1, args.batch_size)))
+
+            grads = p.map(get_grad_wrapper, jobs_idx)
+            grad = np.sum(grads, axis=0)
+            nonzero_ind = np.nonzero(grad)
+            for i in nonzero_ind:
+                w[np.unravel_index(i, w.shape)] -= learning_rate * grad[i]
 
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
