@@ -82,16 +82,27 @@ def async_ML_shared_data(args, mode='per_epoch'):
         w = np.frombuffer(coef_shared.get_obj())
     else:
         w = np.frombuffer(coef_shared)
+    w = w.reshape(init_weights.shape)
+        
+    
+    random_dataset = getattr(model_module, 'random_dataset', True)
     
     # assert data is a numpy array itself
     global data_shared, data_val, gt
     if data_shared is None or data_val is None or gt is None:
-        data, gt = model_module.get_data_shared(args.total_training_data)
+        data_all, gt = model_module.get_data_shared(args.total_training_data)
+        if getattr(model_module, 'has_val', False) or getattr(model_module, 'has_test', False):
+            data = data_all[0]
+        else:
+            data = data_all
         data_shared = Array(c_double, data.flat, lock=False)
-        data_val = np.frombuffer(data_shared).reshape((args.total_training_data, -1))
+        data_val = np.frombuffer(data_shared).reshape(data.shape)
         
+    args.total_training_data = data_val.shape[0]
     nsamples_per_job = args.total_training_data // nthreads
     assert nsamples_per_job * nthreads == args.total_training_data
+    assert nsamples_per_job % args.batch_size == 0
+        
     
     if nthreads == 1:
         mode = 'serial'
@@ -109,13 +120,14 @@ def async_ML_shared_data(args, mode='per_epoch'):
         q = Queue(maxsize=nthreads*2)
     T0 = time.time()
     
+    
     if mode == 'per_epoch':
         for e in range(args.epochs):
             np.random.shuffle(indices)
 
             jobs_idx = []
             for i in range(nthreads):
-                jobs_idx.append(indices[i * nsamples_per_job : (i + 1) * nsamples_per_job])
+                jobs_idx.append(indices[i * nsamples_per_job : (i + 1) * nsamples_per_job].reshape((-1, args.batch_size)))
 
             p.map(hogwild_shared_train_wrapper, jobs_idx)
 
@@ -129,7 +141,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
 
             jobs_idx = []
             for i in range(nthreads):
-                jobs_idx.append(indices[i * nsamples_per_job : (i + 1) * nsamples_per_job])
+                jobs_idx.append(indices[i * nsamples_per_job : (i + 1) * nsamples_per_job].reshape((-1, args.batch_size)))
 
             p.map(RR_shared_train_wrapper, jobs_idx)
 
@@ -142,7 +154,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
         for e in range(args.epochs):
             np.random.shuffle(indices)
             for i in range(nthreads):
-                jobs_idx[i] = np.concatenate((jobs_idx[i], indices[i * nsamples_per_job : (i + 1) * nsamples_per_job]))
+                jobs_idx[i] = np.concatenate((jobs_idx[i], indices[i * nsamples_per_job : (i + 1) * nsamples_per_job].reshape((-1, args.batch_size))))
         p.map(hogwild_shared_train_wrapper, jobs_idx)
         model_module.finish(w, data_val)
     elif mode == 'queue':
@@ -165,7 +177,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
 
             jobs_idx = []
             for i in range(nthreads):
-                jobs_idx.append(indices[i * nsamples_per_job: (i + 1) * nsamples_per_job])
+                jobs_idx.append(indices[i * nsamples_per_job: (i + 1) * nsamples_per_job].reshape((-1, args.batch_size)))
 
             for i in range(len(jobs_idx)):
                 hogwild_shared_train_wrapper(jobs_idx[i])
