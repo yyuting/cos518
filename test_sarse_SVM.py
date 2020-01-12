@@ -31,7 +31,7 @@ lambda_val = 10
 has_val = True
 has_test = True
 
-debug_mode = False
+update_single_entry = False
 
 def init():
     """
@@ -58,7 +58,7 @@ def shared_train_wrapper(alg, lock=None):
             
             if alg == 'RR':
                 lock.acquire()
-            if debug_mode:
+            if update_single_entry:
                 for i in nonzero_ind:
                     current_grad = 2 * lambda_val * w[i] / du
                     if update_predict:

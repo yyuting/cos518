@@ -15,7 +15,7 @@ nclasses = 10
 
 lambda_val = 0.001
 
-debug_mode = False
+update_single_entry = False
 
 
 def init():
@@ -52,7 +52,7 @@ def shared_train_wrapper(alg, lock=None):
             
             
             
-            if debug_mode:
+            if update_single_entry:
                 dW = (x.T.dot(margin) / num_train).reshape(-1)
                 nonzero_ind = np.nonzero(dW)[0]
                 du = nonzero_ind.shape[0]
@@ -64,7 +64,7 @@ def shared_train_wrapper(alg, lock=None):
             if alg == 'RR':
                 lock.acquire()
              
-            if debug_mode:
+            if update_single_entry:
                 for i in nonzero_ind:
                     current_grad = 2 * reg * coef_shared[i] / du + dW[i]
                     coef_shared[i] -= learning_rate * current_grad
