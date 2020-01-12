@@ -48,3 +48,9 @@ Updated 01/10/2020:
 Add round-robin baseline, super slow, may need to find more efficient locking later.
 
 python main.py --model_file test_sarse_SVM.py --nsamples_per_job 10000 --learning_rate 0.01 --epochs 20 --nthreads 2 --njobs 2 --beta 0.9 --dataset_sparsity 0.1 --mode RR
+
+Updated 01/12/2020:
+
+Add CIFAR SVM
+
+python main.py --model_file test_CIFAR.py --learning_rate 0.01 --epochs 2 --beta 0.9 --nthreads 4 --njobs 4 --mode per_epoch --batch_size 125
