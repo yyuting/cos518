@@ -118,11 +118,11 @@ def async_ML_shared_data(args, mode='per_epoch'):
         p = Pool(nthreads, initializer=init_lock, initargs=(lock_obj,))
     if mode == 'queue':
         q = Queue(maxsize=nthreads*2)
-    T0 = time.time()
-    
+    st = 0
     
     if mode == 'per_epoch':
         for e in range(args.epochs):
+            T0 = time.time()
             np.random.shuffle(indices)
 
             jobs_idx = []
@@ -133,10 +133,13 @@ def async_ML_shared_data(args, mode='per_epoch'):
 
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
+            T1 = time.time()
+            st += T1 - T0
             print('epoch', e)
             model_module.finish(w, data_val)
     elif mode == 'RR':
         for e in range(args.epochs):
+            T0 = time.time()
             np.random.shuffle(indices)
 
             jobs_idx = []
@@ -147,25 +150,33 @@ def async_ML_shared_data(args, mode='per_epoch'):
 
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
+            T1 = time.time()
+            st += T1 - T0
             print('epoch', e)
             model_module.finish(w, data_val)
     elif mode == 'all':
+        T0 = time.time()
         jobs_idx = [np.arange(0)] * nthreads
         for e in range(args.epochs):
             np.random.shuffle(indices)
             for i in range(nthreads):
                 jobs_idx[i] = np.concatenate((jobs_idx[i], indices[i * nsamples_per_job : (i + 1) * nsamples_per_job].reshape((-1, args.batch_size))))
         p.map(hogwild_shared_train_wrapper, jobs_idx)
+        T1 = time.time()
+        st += T1 - T0
         model_module.finish(w, data_val)
     elif mode == 'queue':
         p = Pool(nthreads, initializer=hogwild_shared_train_wrapper_with_queue, initargs=(q,))
         for e in range(args.epochs):
+            T0 = time.time()
             np.random.shuffle(indices)
             for ind in indices:
                 q.put(ind)
             print('epoch', e)
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
+            T1 = time.time()
+            st += T1 - T0
             model_module.finish(w, data_val)
 
         for _ in range(nthreads):  # tell workers we're done
@@ -173,6 +184,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
 
     elif mode == 'serial':
         for e in range(args.epochs):
+            T0 = time.time()
             np.random.shuffle(indices)
 
             jobs_idx = []
@@ -182,22 +194,24 @@ def async_ML_shared_data(args, mode='per_epoch'):
             for i in range(len(jobs_idx)):
                 hogwild_shared_train_wrapper(jobs_idx[i])
 
-            print('epoch', e)
+            
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
+            T1 = time.time()
+            st += T1 - T0
+            print('epoch', e)
             model_module.finish(w, data_val)
     else:
         raise 'async shared data mode not allowed'
     
-    T1 = time.time()
     if mode in ['per_epoch', 'all', 'RR', 'queue']:
         p.close()
         p.join()
     
     print('mode', mode)
-    print('shared async job finished in', T1 - T0, 's')
+    print('shared async job finished in', st, 's')
     err = model_module.finish(w, data_val)
-    return T1 - T0, err
+    return st, err
     
     
 def eval_nthreads_tradeoff(args):
