@@ -71,10 +71,10 @@ def get_data_shared(total):
     numpy.save(filename, [ls, gt_w])
     return ls, gt_w
 
-def finish(w, gt):
+def finish(w, data):
     """
     process trained model
     """
-    err = np.sum((w - gt) ** 2)
-    print("l2 error with gt, ", np.sum((w - gt) ** 2))
+    err = np.sum((data[:, -1] - np.matmul(data[:, :-1], w)) ** 2)
+    print("training error, ", err)
     return err
