@@ -26,7 +26,12 @@ sparse_d = 0.2
 learning_rate = 0.001
 tol = 0
 
-lambda_val = 0.001
+lambda_val = 10
+
+has_val = True
+has_test = True
+
+debug_mode = True
 
 def init():
     """
@@ -58,18 +63,22 @@ def shared_train_wrapper(alg, lock=None):
     assert alg in ['hogwild', 'RR']
     def func(idx, w, coef_shared, data_val):
         for k in idx:
-            current_predict = 1 - data_val[k, -1] * np.sum(w * data_val[k, :-1])
+            current_predict = 1 - data_val[k, -1] * np.matmul(data_val[k, :-1], w)
 
-            nonzero_ind = np.nonzero(data_val[k, :-1])[0]
+            # only approximate, e.g. if one sample has entry -1 and another entry has sample 1, the entry will be incorrectely ignored
+            # but this way is much more efficient than taking the union of nonzero sets for each sample
+            nonzero_ind = np.nonzero(np.sum(data_val[k, :-1], 0))[0]
             du = nonzero_ind.shape[0]
-
+            
             if alg == 'RR':
                 lock.acquire()
-            for i in nonzero_ind:
-                current_grad = 2 * lambda_val * w[i] / du
-                if current_predict > 0:
-                    current_grad -= data_val[k, -1] * data_val[k, i]
-                coef_shared[i] -= learning_rate * current_grad
+            if True:
+                for i in nonzero_ind:
+                    current_grad = 2 * lambda_val * w[i] / du
+                    if np.any(current_predict) > 0:
+                        current_grad -= np.sum(data_val[k, -1] * data_val[k, i])
+                    coef_shared[i] -= learning_rate * current_grad
+
             if alg == 'RR':
                 lock.release()
         
@@ -92,18 +101,26 @@ def get_data_shared(total):
     
     gt_w = np.random.rand(ndims) - 0.5
     
-    X = scipy.sparse.random(total, ndims, density=sparse_d).toarray() - 0.5
+    X = scipy.sparse.random(total, ndims, density=sparse_d).toarray()
     y = np.sign(np.matmul(X, gt_w))
     ls = np.concatenate((X, np.expand_dims(y, 1)), 1)
+    
+    X_validate = scipy.sparse.random(total // 10, ndims, density=sparse_d).toarray()
+    y_validate = np.sign(np.matmul(X_validate, gt_w))
+    ls_validate = np.concatenate((X_validate, np.expand_dims(y_validate, 1)), 1)
+    
+    X_test = scipy.sparse.random(total // 10, ndims, density=sparse_d).toarray()
+    y_test = np.sign(np.matmul(X_test, gt_w))
+    ls_test = np.concatenate((X_test, np.expand_dims(y_test, 1)), 1)
         
-    numpy.save(filename, [ls, gt_w])
-    return ls, gt_w
+    numpy.save(filename, [[ls, ls_validate, ls_test], gt_w])
+    return [ls, ls_validate, ls_test], gt_w
 
-def finish(w, data):
+def finish(w, data, mode='validation'):
     """
     process trained model
     """
     err = np.sum(np.maximum(1 - data[:, -1] * np.matmul(data[:, :-1], w), 0))
     reg = lambda_val * np.sum(w * w)
-    print("training error, ", err, err + reg)
+    print("%s error, " % mode, err, err + reg)
     return err
