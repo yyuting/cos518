@@ -122,7 +122,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
             print('epoch', e)
-            model_module.finish(w, gt)
+            model_module.finish(w, data_val)
     elif mode == 'RR':
         for e in range(args.epochs):
             np.random.shuffle(indices)
@@ -136,7 +136,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
             print('epoch', e)
-            model_module.finish(w, gt)
+            model_module.finish(w, data_val)
     elif mode == 'all':
         jobs_idx = [np.arange(0)] * nthreads
         for e in range(args.epochs):
@@ -144,7 +144,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
             for i in range(nthreads):
                 jobs_idx[i] = np.concatenate((jobs_idx[i], indices[i * nsamples_per_job : (i + 1) * nsamples_per_job]))
         p.map(hogwild_shared_train_wrapper, jobs_idx)
-        model_module.finish(w, gt)
+        model_module.finish(w, data_val)
     elif mode == 'queue':
         p = Pool(nthreads, initializer=hogwild_shared_train_wrapper_with_queue, initargs=(q,))
         for e in range(args.epochs):
@@ -154,7 +154,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
             print('epoch', e)
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
-            model_module.finish(w, gt)
+            model_module.finish(w, data_val)
 
         for _ in range(nthreads):  # tell workers we're done
             q.put(None)
@@ -173,7 +173,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
             print('epoch', e)
             model_module.learning_rate *= args.beta
             model_module.print_learning_rate()
-            model_module.finish(w, gt)
+            model_module.finish(w, data_val)
     else:
         raise 'async shared data mode not allowed'
     
@@ -184,7 +184,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
     
     print('mode', mode)
     print('shared async job finished in', T1 - T0, 's')
-    err = model_module.finish(w, gt)
+    err = model_module.finish(w, data_val)
     return T1 - T0, err
     
     

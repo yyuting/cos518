@@ -74,19 +74,20 @@ def get_data_shared(total):
         arr = numpy.load(filename)
         return arr[0], arr[1]
     
-    gt_w = np.random.rand(ndims)
+    gt_w = np.random.rand(ndims) - 0.5
     
-    X = scipy.sparse.random(total, ndims, density=sparse_d).toarray()
-    y = np.matmul(X, gt_w)
+    X = scipy.sparse.random(total, ndims, density=sparse_d).toarray() - 0.5
+    y = np.sign(np.matmul(X, gt_w))
     ls = np.concatenate((X, np.expand_dims(y, 1)), 1)
         
     numpy.save(filename, [ls, gt_w])
     return ls, gt_w
 
-def finish(w, gt):
+def finish(w, data):
     """
     process trained model
     """
-    err = np.sum((w - gt) ** 2)
-    print("l2 error with gt, ", np.sum((w - gt) ** 2))
+    err = np.sum(np.maximum(1 - data[:, -1] * np.matmul(data[:, :-1], w), 0))
+    reg = lambda_val * np.sum(w * w)
+    print("training error, ", err, err + reg)
     return err
