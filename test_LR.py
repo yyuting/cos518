@@ -40,11 +40,10 @@ def shared_train_wrapper(alg, lock=None):
         for k in idx:
             err = data_val[k, -1] - np.matmul(data_val[k, :-1], w)
             nonzero_ind = np.nonzero(data_val[k, :-1])[0]
+            grad = -2 * np.expand_dims(err, 1) * data_val[k, :-1]
             if alg == 'RR':
                 lock.acquire()
-            for i in nonzero_ind:
-                grad = -2 * err * data_val[k, i]
-                coef_shared[i] -= learning_rate * grad
+            coef_shared[:] -= learning_rate * np.sum(grad, 0)
             if alg == 'RR':
                 lock.release()
     return func
