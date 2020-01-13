@@ -138,8 +138,8 @@ def async_ML_shared_data(args, mode='per_epoch'):
             model_module.print_learning_rate()
             T1 = time.time()
             st += T1 - T0
-            print('epoch', e)
-            model_module.finish(w, data_validate)
+            err = model_module.finish(w, data_validate)
+            print('epoch', e, 'error', err)
     elif mode == 'sync':
         for e in range(args.epochs):
             T0 = time.time()

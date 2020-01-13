@@ -19,7 +19,7 @@ batch_size = DEFAULT_BATCH_SIZE
 DEFAULT_NSAMPLES_PER_JOB = 10
 nsamples_per_job = DEFAULT_NSAMPLES_PER_JOB
 
-ndims = 100
+ndims = 2
 sparse_d = 0.2
 learning_rate = 0.001
 tol = 1e-2
@@ -31,7 +31,8 @@ def init():
     return np.zeros(ndims)
 
 def print_learning_rate():
-    print('learning rate now', learning_rate)
+    #print('learning rate now', learning_rate)
+    a = 1
     
 def shared_train_wrapper(alg, lock=None):
     assert alg in ['hogwild', 'RR']
@@ -71,10 +72,10 @@ def get_data_shared(total):
     numpy.save(filename, [ls, gt_w])
     return ls, gt_w
 
-def finish(w, data):
+def finish(w, data, mode='nothing'):
     """
     process trained model
     """
     err = np.sum((data[:, -1] - np.matmul(data[:, :-1], w)) ** 2)
-    print("training error, ", err)
+    #print("training error, ", err)
     return err
