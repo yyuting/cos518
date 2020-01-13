@@ -3,6 +3,7 @@ import importlib
 import importlib.util
 import os
 import time
+import sys
 
 # Yuting: shared memory modified from
 # https://srome.github.io/Async-SGD-in-Python-Implementing-Hogwild!/
@@ -40,6 +41,8 @@ batch_size = DEFAULT_BATCH_SIZE
 DEFAULT_BETA = 0.9
 
 DEFAULT_SPARSITY = 0.1
+
+DEFAULT_REGULARIZATION = -1
 
 def hogwild_shared_train_wrapper(data):
     model_module.shared_train_hogwild(data, w, coef_shared, data_val)
@@ -106,6 +109,10 @@ def async_ML_shared_data(args, mode='per_epoch'):
     assert nsamples_per_job * nthreads == args.total_training_data
     assert nsamples_per_job % args.batch_size == 0
         
+        
+    if args.regularization > 0:
+        if hasattr(model_module, 'lambda_val'):
+            model_module.lambda_val = args.regularization
     
     if nthreads == 1:
         mode = 'serial'
@@ -122,6 +129,10 @@ def async_ML_shared_data(args, mode='per_epoch'):
     if mode == 'queue':
         q = Queue(maxsize=nthreads*2)
     st = 0
+    
+    best_err = 1e8
+    best_epoch = -1
+    best_model = np.empty(init_weights.shape)
     
     if mode == 'per_epoch':
         for e in range(args.epochs):
@@ -140,25 +151,57 @@ def async_ML_shared_data(args, mode='per_epoch'):
             st += T1 - T0
             err = model_module.finish(w, data_validate)
             print('epoch', e, 'error', err)
+            if best_err > err:
+                best_err = err
+                best_epoch = e
+                best_model[:] = w[:]
+            
     elif mode == 'sync':
-        for e in range(args.epochs):
+        # hack for CIFAR dataset, using Darby's code, but passing hyperparameters from the API
+        if args.model_file == 'test_CIFAR.py':
+            sys.path += ['darby_518']
+            from SVM import SVM
+            svm=SVM()
+            
+            sync_batch_size = args.batch_size * args.nthreads
+            sync_niters = args.epochs * args.total_training_data // sync_batch_size
+            
+            assert (args.epochs * args.total_training_data) % sync_batch_size == 0
+            
             T0 = time.time()
-            np.random.shuffle(indices)
-
-            jobs_idx = []
-            for i in range(nthreads):
-                jobs_idx.append(indices[i * nsamples_per_job : (i + 1) * nsamples_per_job].reshape((-1, args.batch_size)))
-
-            grads = p.map(get_grad_wrapper, jobs_idx)
-            grad = np.sum(grads, axis=0)
-            coef_shared[:] -= learning_rate * grad
-
-            model_module.learning_rate *= args.beta
-            model_module.print_learning_rate()
+            history_loss = svm.train(data_val[:, :-1], data_val[:, -1].astype('i'), reg=args.regularization, learning_rate=args.learning_rate, num_iters=sync_niters, batch_size=sync_batch_size, verbose=True)
             T1 = time.time()
+            
+            y_pre=svm.predict(data_test[:, :-1])
+            acc=np.mean(y_pre==data_test[:, -1].astype('i'))
+            
             st += T1 - T0
-            print('epoch', e)
-            model_module.finish(w, data_validate)
+                
+            print("learning_rate=%e,regularization_strength=%e,val_accury=%f"%(args.learning_rate,args.regularization,acc))
+        
+        else:
+            for e in range(args.epochs):
+                T0 = time.time()
+                np.random.shuffle(indices)
+
+                jobs_idx = []
+                for i in range(nthreads):
+                    jobs_idx.append(indices[i * nsamples_per_job : (i + 1) * nsamples_per_job].reshape((-1, args.batch_size)))
+
+                grads = p.map(get_grad_wrapper, jobs_idx)
+                grad = np.sum(grads, axis=0)
+                coef_shared[:] -= learning_rate * grad
+
+                model_module.learning_rate *= args.beta
+                model_module.print_learning_rate()
+                T1 = time.time()
+                st += T1 - T0
+                print('epoch', e)
+                model_module.finish(w, data_validate)
+                if best_err > err:
+                    best_err = err
+                    best_epoch = e
+                    best_model[:] = w[:]
     elif mode == 'RR':
         for e in range(args.epochs):
             T0 = time.time()
@@ -176,6 +219,10 @@ def async_ML_shared_data(args, mode='per_epoch'):
             st += T1 - T0
             print('epoch', e)
             model_module.finish(w, data_validate)
+            if best_err > err:
+                best_err = err
+                best_epoch = e
+                best_model[:] = w[:]
     elif mode == 'all':
         T0 = time.time()
         jobs_idx = [np.arange(0)] * nthreads
@@ -200,6 +247,10 @@ def async_ML_shared_data(args, mode='per_epoch'):
             T1 = time.time()
             st += T1 - T0
             model_module.finish(w, data_validate)
+            if best_err > err:
+                best_err = err
+                best_epoch = e
+                best_model[:] = w[:]
 
         for _ in range(nthreads):  # tell workers we're done
             q.put(None)
@@ -223,6 +274,10 @@ def async_ML_shared_data(args, mode='per_epoch'):
             st += T1 - T0
             print('epoch', e)
             model_module.finish(w, data_validate)
+            if best_err > err:
+                best_err = err
+                best_epoch = e
+                best_model[:] = w[:]
     else:
         raise 'async shared data mode not allowed'
     
@@ -233,7 +288,11 @@ def async_ML_shared_data(args, mode='per_epoch'):
     print('mode', mode)
     print('shared async job finished in', st, 's')
     err = model_module.finish(w, data_test, mode='test')
-    return st, err
+    
+    best_test_err = model_module.finish(best_model, data_test, mode='test')
+    print('best model at epoch %d' % best_epoch, 'validation score', best_err, 'test score', best_test_err)
+    
+    return st, best_test_err
     
     
 def eval_nthreads_tradeoff(args):
@@ -278,6 +337,8 @@ def main():
     parser.add_argument('--epochs', dest='epochs', type=int, default=1, help='number of epochs for training')
     parser.add_argument('--beta', dest='beta', type=float, default=DEFAULT_BETA, help='beta used to decay learning rate per epoch')
     parser.add_argument('--dataset_sparsity', dest='dataset_sparsity', type=float, default=DEFAULT_SPARSITY, help='if creating random dataset, set the dataset sparsity')
+    parser.add_argument('--regularization', dest='regularization', type=float, default=DEFAULT_REGULARIZATION, help='if >0, use this to schedule regularization in SVM')
+    
     args = parser.parse_args()
     
     global learning_rate, tol, nthreads, batch_size

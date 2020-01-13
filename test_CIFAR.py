@@ -27,6 +27,7 @@ def init():
 def print_learning_rate():
     print('learning rate now', learning_rate)
     
+    
 def shared_train_wrapper(alg, lock=None):
     assert alg in ['hogwild', 'RR']
     def func(idx, w, coef_shared, data_val):
@@ -98,12 +99,11 @@ def finish(w, data, mode='validation'):
     """
     x = data[:, :-1]
     y = data[:, -1].astype('i')
-    num_train=x.shape[0]
+    
     scores=x.dot(w)
-    margin=scores-scores[np.arange(num_train),y].reshape(num_train,1)+1
-    margin[np.arange(num_train),y]=0.0
-    margin=(margin>0)*margin
-    err = margin.sum()/num_train
-    reg = 0.5*lambda_val*np.sum(w * w)
-    print("%s error, " % mode, err, err + reg)
-    return err
+    y_pre=np.argmax(scores,axis=1)
+    
+    acc=np.mean(y_pre==y)
+    
+    print("%s accuracy, " % mode, acc)
+    return -acc
