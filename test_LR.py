@@ -76,5 +76,5 @@ def finish(w, data, mode='nothing'):
     process trained model
     """
     err = np.sum((data[:, -1] - np.matmul(data[:, :-1], w)) ** 2)
-    #print("training error, ", err)
+    print("training error, ", err)
     return err

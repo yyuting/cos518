@@ -1,56 +1,42 @@
 # cos518
 COS 518 course project
 
-Test command (simple counting, not ML):
+Example commands:
 
-python main.py --model_file sanity_test.py --learning_rate 1 --njobs 1000 --batch_size 200 --nsamples_per_job 1
+synthetic SVM dataset using HogWild!
 
-Updated 12/23/2019:
+python main.py --model_file test_sparse_SVM.py --learning_rate 0.000001 --epochs 5 --batch_size 2 --mode per_epoch --total_training_data 100000 --dataset_sparsity 0.1 --nthreads 4
 
-simple linear regression with async training (Hogwild! algorithm)
+synthetic SVM dataset using synchronize SGD
 
-~~python main.py --model_file test_LR.py
+python main.py --model_file test_sparse_SVM.py --learning_rate 0.000001 --epochs 5 --batch_size 2 --mode sync --total_training_data 100000 --dataset_sparsity 0.1 --nthreads 4
 
-Updated 01/02/2020:
+synthetic SVM datset using serial SGD
 
-Script to evaluate async training with different job schedules
+python main.py --model_file test_sparse_SVM.py --learning_rate 0.000001 --epochs 5 --batch_size 2 --mode serial --total_training_data 100000 --dataset_sparsity 0.1 --nthreads 4
 
-~~python main.py --model_file test_LR.py --nthreads 4 --eval_schedule eval_njobs_schedule.txt --mode eval_njobs_nsamples_tradeoff --total_training_data 8192 --output_file out_njobs_schedule_test_LR.txt
+CIFAR datset using HogWild!
 
-Updated 01/04/2020:
+python main.py --model_file test_CIFAR.py --learning_rate 0.000002 --epochs 5 --batch_size 125 --mode per_epoch --nthreads 4
 
-add sparse SVM
+CIFAR dataset using synchronize SGD
 
-Refactor code, data is now in shared memory, only indices are parsed to each processes
+!!! This is not in the report, but we actually implemented this and it's working!
 
-can train multiple epochs with learning rate decay now
+python main.py --model_file test_CIFAR.py --learning_rate 0.000002 --epochs 5 --batch_size 125 --mode sync --nthreads 4
 
-Run sparse SVM and linear regression:
+CIFAR dataset using serial SGD
 
-python main.py --model_file test_sarse_SVM.py --nsamples_per_job 10000 --learning_rate 0.01 --epochs 20 --nthreads 4 --njobs 4 --beta 0.9
+python main.py --model_file test_CIFAR.py --learning_rate 0.000002 --epochs 5 --batch_size 125 --mode serial --nthreads 4
 
-python main.py --model_file test_LR.py --nsamples_per_job 10000 --learning_rate 0.01 --epochs 10 --nthreads 4 --njobs 4 --beta 0.9
+synthetic LR datset using HogWild!
 
-Benchmark sparse SVM and linear regression on different number of threads:
+python main.py --model_file test_LR.py --learning_rate 0.000001 --epochs 5 --batch_size 2 --mode per_epoch --total_training_data 100000 --dataset_sparsity 0.1 --nthreads 4
 
-python main.py --model_file test_sarse_SVM.py --learning_rate 0.01 --epochs 10 --nthreads 4 --beta 0.9 --total_training_data 42000 --mode eval_nthreads_tradeoff --eval_schedule eval_njobs_schedule.txt --output_file out_njobs_schedule_test_SVM.txt
+synthetic LR datset using synchronize SGD
 
-python main.py --model_file test_LR.py --learning_rate 0.01 --epochs 10 --nthreads 4 --beta 0.9 --total_training_data 42000 --mode eval_nthreads_tradeoff --eval_schedule eval_njobs_schedule.txt --output_file out_njobs_schedule_test_LR.txt
+python main.py --model_file test_LR.py --learning_rate 0.000001 --epochs 5 --batch_size 2 --mode sync --total_training_data 100000 --dataset_sparsity 0.1 --nthreads 4
 
-Updated 01/09/2020:
+synthetic LR dataset using serial SGD
 
-provide API to set random dataset sparsity:
-
-python main.py --model_file test_sarse_SVM.py --nsamples_per_job 10000 --learning_rate 0.01 --epochs 20 --nthreads 4 --njobs 4 --beta 0.9 --dataset_sparsity 0.1
-
-Updated 01/10/2020:
-
-Add round-robin baseline, super slow, may need to find more efficient locking later.
-
-python main.py --model_file test_sarse_SVM.py --nsamples_per_job 10000 --learning_rate 0.01 --epochs 20 --nthreads 2 --njobs 2 --beta 0.9 --dataset_sparsity 0.1 --mode RR
-
-Updated 01/12/2020:
-
-Add CIFAR SVM
-
-python main.py --model_file test_CIFAR.py --learning_rate 0.01 --epochs 2 --beta 0.9 --nthreads 4 --njobs 4 --mode per_epoch --batch_size 125
+python main.py --model_file test_LR.py --learning_rate 0.000001 --epochs 5 --batch_size 2 --mode serial --total_training_data 100000 --dataset_sparsity 0.1 --nthreads 4
