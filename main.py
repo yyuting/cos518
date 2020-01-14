@@ -169,7 +169,7 @@ def async_ML_shared_data(args, mode='per_epoch'):
             assert (args.epochs * args.total_training_data) % sync_batch_size == 0
             
             T0 = time.time()
-            history_loss = svm.train(data_val[:, :-1], data_val[:, -1].astype('i'), reg=args.regularization, learning_rate=args.learning_rate, num_iters=sync_niters, batch_size=sync_batch_size, verbose=True)
+            history_loss = svm.train(data_val[:, :-1], data_val[:, -1].astype('i'), reg=args.regularization, learning_rate=args.learning_rate, num_iters=sync_niters, batch_size=sync_batch_size, verbose=True, nthreads=args.nthreads)
             T1 = time.time()
             
             y_pre=svm.predict(data_test[:, :-1])
