@@ -163,13 +163,13 @@ def async_ML_shared_data(args, mode='per_epoch'):
             from SVM import SVM
             svm=SVM()
             
-            sync_batch_size = args.batch_size * args.nthreads
+            sync_batch_size = args.batch_size * nthreads
             sync_niters = args.epochs * args.total_training_data // sync_batch_size
             
             assert (args.epochs * args.total_training_data) % sync_batch_size == 0
             
             T0 = time.time()
-            history_loss = svm.train(data_val[:, :-1], data_val[:, -1].astype('i'), reg=args.regularization, learning_rate=args.learning_rate, num_iters=sync_niters, batch_size=sync_batch_size, verbose=True, nthreads=args.nthreads)
+            history_loss = svm.train(data_val[:, :-1], data_val[:, -1].astype('i'), reg=args.regularization, learning_rate=args.learning_rate, num_iters=sync_niters, batch_size=sync_batch_size, verbose=True, nthreads=nthreads)
             T1 = time.time()
             
             y_pre=svm.predict(data_test[:, :-1])
@@ -314,7 +314,8 @@ def eval_nthreads_tradeoff(args):
         val = nthreads_schedule[i]
         nthreads = val
         assert args.total_training_data % nthreads == 0
-        tval, err = async_ML_shared_data(args, mode='per_epoch')
+        args.nthreads = val
+        tval, err = async_ML_shared_data(args, mode='sync')
         all_times[i] = tval
         all_err[i] = err
         print('eval with nthreads ', nthreads, 'finished in ', tval, 's')
